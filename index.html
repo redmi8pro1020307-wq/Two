@@ -1,2 +1,343 @@
-
-<h1>Hello</h1>
+ (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
+diff --git a/index.html b/index.html
+index 892aebc35ebef12c6fe88f071d82db575feb932f..44d5d8c9af03307f2839a275de4e4456c2630991 100644
+--- a/index.html
++++ b/index.html
+@@ -1,2 +1,333 @@
++<!doctype html>
++<html lang="ru">
++  <head>
++    <meta charset="UTF-8" />
++    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
++    <title>Практика резонансного дыхания</title>
++    <style>
++      :root {
++        --bg1: #0e1328;
++        --bg2: #1a2450;
++        --accent: #89f7fe;
++        --accent2: #66a6ff;
++        --text: #eaf1ff;
++      }
+ 
+-<h1>Hello</h1>
++      * { box-sizing: border-box; }
++
++      body {
++        margin: 0;
++        min-height: 100vh;
++        font-family: "Inter", "Segoe UI", sans-serif;
++        color: var(--text);
++        background: radial-gradient(circle at 20% 20%, #243b80 0%, transparent 35%),
++          radial-gradient(circle at 80% 10%, #205d91 0%, transparent 35%),
++          linear-gradient(135deg, var(--bg1), var(--bg2));
++        display: grid;
++        place-items: center;
++        padding: 20px;
++      }
++
++      .app {
++        width: min(960px, 100%);
++        background: rgba(255, 255, 255, 0.08);
++        border: 1px solid rgba(255, 255, 255, 0.18);
++        backdrop-filter: blur(14px);
++        border-radius: 24px;
++        padding: 24px;
++        display: grid;
++        grid-template-columns: 340px 1fr;
++        gap: 24px;
++      }
++
++      .panel h1 { margin: 0 0 8px; font-size: 1.4rem; }
++      .panel p { margin: 0 0 20px; opacity: 0.9; }
++      .grid { display: grid; gap: 14px; }
++      .field { display: grid; gap: 6px; }
++      label { font-size: 0.9rem; opacity: 0.9; }
++      input[type="number"] {
++        width: 100%;
++        padding: 10px 12px;
++        border-radius: 10px;
++        border: 1px solid rgba(255,255,255,0.25);
++        background: rgba(5, 10, 26, 0.5);
++        color: var(--text);
++        font-size: 1rem;
++      }
++
++      .preset-row, .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
++      button {
++        border: 0;
++        border-radius: 12px;
++        padding: 10px 14px;
++        color: #061127;
++        background: linear-gradient(135deg, var(--accent), var(--accent2));
++        font-weight: 600;
++        cursor: pointer;
++      }
++      .ghost {
++        background: rgba(255,255,255,0.14);
++        color: var(--text);
++        border: 1px solid rgba(255,255,255,0.25);
++      }
++
++      .status {
++        margin-top: 16px;
++        background: rgba(0,0,0,0.22);
++        border-radius: 12px;
++        padding: 12px;
++        display: grid;
++        gap: 6px;
++      }
++      .big { font-size: 1.4rem; font-weight: 700; }
++
++      .visual {
++        position: relative;
++        min-height: 520px;
++        border-radius: 20px;
++        background: linear-gradient(180deg, rgba(9, 17, 38, 0.55), rgba(7, 11, 24, 0.75));
++        border: 1px solid rgba(255,255,255,0.12);
++        overflow: hidden;
++        display: grid;
++        place-items: center;
++      }
++      canvas { width: 100%; height: 100%; }
++      .center-text {
++        position: absolute;
++        text-align: center;
++        font-weight: 700;
++        text-shadow: 0 0 12px rgba(137,247,254,0.55);
++        pointer-events: none;
++      }
++      .phase { font-size: 2rem; margin-bottom: 6px; }
++      .time-left { font-size: 1.2rem; opacity: 0.95; }
++
++      @media (max-width: 900px) {
++        .app { grid-template-columns: 1fr; }
++        .visual { min-height: 420px; }
++      }
++    </style>
++  </head>
++  <body>
++    <main class="app">
++      <section class="panel">
++        <h1>Резонансное дыхание</h1>
++        <p>Настройте вдох/выдох и длительность практики. Дышите мягко и без усилий.</p>
++
++        <div class="grid">
++          <div class="field">
++            <label for="inhale">Вдох (сек)</label>
++            <input id="inhale" type="number" min="2" max="12" value="5" />
++          </div>
++          <div class="field">
++            <label for="exhale">Выдох (сек)</label>
++            <input id="exhale" type="number" min="2" max="12" value="5" />
++          </div>
++          <div class="field">
++            <label for="duration">Практика (минуты)</label>
++            <input id="duration" type="number" min="1" max="30" value="5" />
++          </div>
++
++          <div class="preset-row">
++            <button id="preset5" class="ghost">Упражнение 5 минут</button>
++            <button id="preset10" class="ghost">Упражнение 10 минут</button>
++          </div>
++
++          <div class="btn-row">
++            <button id="start">Старт</button>
++            <button id="pause" class="ghost">Пауза</button>
++            <button id="reset" class="ghost">Сброс</button>
++          </div>
++        </div>
++
++        <div class="status">
++          <div>Цикл: <span id="cycleLen">10</span> сек</div>
++          <div>Прогресс: <span id="cycleCount">0</span> циклов</div>
++          <div class="big" id="hint">Готово к началу</div>
++        </div>
++      </section>
++
++      <section class="visual">
++        <canvas id="canvas"></canvas>
++        <div class="center-text">
++          <div class="phase" id="phase">Вдох</div>
++          <div class="time-left" id="timeLeft">05:00</div>
++        </div>
++      </section>
++    </main>
++
++    <script>
++      const inhaleEl = document.getElementById('inhale');
++      const exhaleEl = document.getElementById('exhale');
++      const durationEl = document.getElementById('duration');
++      const cycleLenEl = document.getElementById('cycleLen');
++      const cycleCountEl = document.getElementById('cycleCount');
++      const hintEl = document.getElementById('hint');
++      const phaseEl = document.getElementById('phase');
++      const timeLeftEl = document.getElementById('timeLeft');
++
++      const canvas = document.getElementById('canvas');
++      const ctx = canvas.getContext('2d');
++
++      let state = {
++        running: false,
++        paused: false,
++        startTime: 0,
++        pauseOffset: 0,
++        totalMs: 5 * 60 * 1000,
++        inhaleSec: 5,
++        exhaleSec: 5,
++      };
++
++      function resize() {
++        const ratio = window.devicePixelRatio || 1;
++        canvas.width = canvas.clientWidth * ratio;
++        canvas.height = canvas.clientHeight * ratio;
++        ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
++      }
++      window.addEventListener('resize', resize);
++      resize();
++
++      function fmt(ms) {
++        const sec = Math.max(0, Math.ceil(ms / 1000));
++        const m = String(Math.floor(sec / 60)).padStart(2, '0');
++        const s = String(sec % 60).padStart(2, '0');
++        return `${m}:${s}`;
++      }
++
++      function syncCycleInfo() {
++        const inhale = Number(inhaleEl.value);
++        const exhale = Number(exhaleEl.value);
++        cycleLenEl.textContent = inhale + exhale;
++      }
++      inhaleEl.addEventListener('input', syncCycleInfo);
++      exhaleEl.addEventListener('input', syncCycleInfo);
++      syncCycleInfo();
++
++      function setPreset(minutes) {
++        durationEl.value = minutes;
++        inhaleEl.value = 5;
++        exhaleEl.value = 5;
++        syncCycleInfo();
++        hintEl.textContent = `Выбрано упражнение ${minutes} минут`;
++      }
++      document.getElementById('preset5').onclick = () => setPreset(5);
++      document.getElementById('preset10').onclick = () => setPreset(10);
++
++      document.getElementById('start').onclick = () => {
++        state.inhaleSec = Math.max(2, Number(inhaleEl.value));
++        state.exhaleSec = Math.max(2, Number(exhaleEl.value));
++        state.totalMs = Math.max(1, Number(durationEl.value)) * 60 * 1000;
++
++        if (!state.running) {
++          state.running = true;
++          state.paused = false;
++          state.pauseOffset = 0;
++          state.startTime = performance.now();
++        } else if (state.paused) {
++          state.paused = false;
++          state.pauseOffset += performance.now() - state.pausedAt;
++        }
++      };
++
++      document.getElementById('pause').onclick = () => {
++        if (state.running && !state.paused) {
++          state.paused = true;
++          state.pausedAt = performance.now();
++          hintEl.textContent = 'Пауза';
++        }
++      };
++
++      document.getElementById('reset').onclick = () => {
++        state.running = false;
++        state.paused = false;
++        state.pauseOffset = 0;
++        cycleCountEl.textContent = '0';
++        phaseEl.textContent = 'Вдох';
++        hintEl.textContent = 'Готово к началу';
++        timeLeftEl.textContent = fmt(Number(durationEl.value) * 60 * 1000);
++      };
++
++      function draw(now) {
++        const w = canvas.clientWidth;
++        const h = canvas.clientHeight;
++        ctx.clearRect(0, 0, w, h);
++
++        const cx = w / 2;
++        const cy = h / 2;
++
++        const t = now / 1000;
++        for (let i = 0; i < 100; i++) {
++          const x = (Math.sin(i * 83.13 + t * 0.25) * 0.5 + 0.5) * w;
++          const y = (Math.cos(i * 52.41 + t * 0.18) * 0.5 + 0.5) * h;
++          const r = 0.6 + (i % 3);
++          ctx.fillStyle = `rgba(173, 216, 255, ${0.04 + (i % 5) * 0.02})`;
++          ctx.beginPath();
++          ctx.arc(x, y, r, 0, Math.PI * 2);
++          ctx.fill();
++        }
++
++        let breathProgress = 0;
++        let phase = 'Вдох';
++        let remaining = state.totalMs;
++
++        if (state.running) {
++          const elapsed = state.paused
++            ? state.pausedAt - state.startTime - state.pauseOffset
++            : now - state.startTime - state.pauseOffset;
++          remaining = state.totalMs - elapsed;
++
++          if (remaining <= 0) {
++            state.running = false;
++            remaining = 0;
++            hintEl.textContent = 'Практика завершена. Отличная работа!';
++            phase = 'Готово';
++            breathProgress = 0;
++          } else {
++            const cycleMs = (state.inhaleSec + state.exhaleSec) * 1000;
++            const inMs = state.inhaleSec * 1000;
++            const pos = ((elapsed % cycleMs) + cycleMs) % cycleMs;
++            const cyclesDone = Math.floor(elapsed / cycleMs);
++            cycleCountEl.textContent = String(Math.max(0, cyclesDone));
++
++            if (pos < inMs) {
++              phase = 'Вдох';
++              breathProgress = pos / inMs;
++              hintEl.textContent = 'Медленно вдохните';
++            } else {
++              phase = 'Выдох';
++              breathProgress = 1 - (pos - inMs) / (state.exhaleSec * 1000);
++              hintEl.textContent = 'Мягко выдыхайте';
++            }
++          }
++        }
++
++        const pulse = 0.06 * Math.sin(t * 2.4);
++        const baseR = Math.min(w, h) * 0.16;
++        const dynamicR = baseR + Math.min(w, h) * (0.2 * breathProgress + pulse);
++
++        const grad = ctx.createRadialGradient(cx, cy, dynamicR * 0.3, cx, cy, dynamicR * 1.5);
++        grad.addColorStop(0, 'rgba(137,247,254,0.9)');
++        grad.addColorStop(0.5, 'rgba(102,166,255,0.35)');
++        grad.addColorStop(1, 'rgba(102,166,255,0.02)');
++
++        ctx.fillStyle = grad;
++        ctx.beginPath();
++        ctx.arc(cx, cy, dynamicR * 1.55, 0, Math.PI * 2);
++        ctx.fill();
++
++        ctx.strokeStyle = 'rgba(180,230,255,0.9)';
++        ctx.lineWidth = 2;
++        ctx.beginPath();
++        ctx.arc(cx, cy, dynamicR, 0, Math.PI * 2);
++        ctx.stroke();
++
++        phaseEl.textContent = phase;
++        timeLeftEl.textContent = fmt(remaining);
++        requestAnimationFrame(draw);
++      }
++
++      requestAnimationFrame(draw);
++    </script>
++  </body>
++</html>
+ 
+EOF
+)
